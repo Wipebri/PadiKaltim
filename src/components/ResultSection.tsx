@@ -2,7 +2,15 @@
 
 import React from "react";
 import { EvaluationResult } from "@/types";
-import { CheckCircle2, FlaskConical, Wheat, Droplets, ArrowLeft, AlertTriangle } from "lucide-react";
+import {
+  CheckCircle2,
+  XCircle,
+  FlaskConical,
+  Wheat,
+  Droplets,
+  ArrowLeft,
+  AlertTriangle,
+} from "lucide-react";
 
 interface ResultSectionProps {
   result: EvaluationResult;
@@ -10,21 +18,47 @@ interface ResultSectionProps {
 }
 
 export default function ResultSection({ result, onRetest }: ResultSectionProps) {
+  const isTumbuh = result.statusSpk === "Tumbuh" || parseFloat(result.score) >= 50.0;
+
   return (
     <div id="result-section" className="result-container">
       {/* Result Status Banner */}
       <div className="result-banner">
         <div className="banner-left">
           <div
-            className="banner-badge-status"
             style={{
-              backgroundColor: result.statusBadgeColor,
-              color: result.statusBadgeTextColor || "#FFFFFF",
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              flexWrap: "wrap",
+              marginBottom: "12px",
             }}
           >
-            <CheckCircle2 size={16} />
-            <span>{result.statusTitle}</span>
+            <div
+              className="banner-badge-status"
+              style={{
+                backgroundColor: result.statusBadgeColor,
+                color: result.statusBadgeTextColor || "#FFFFFF",
+              }}
+            >
+              <CheckCircle2 size={16} />
+              <span>{result.statusTitle}</span>
+            </div>
+
+            <div
+              className="banner-badge-status"
+              style={{
+                backgroundColor: isTumbuh ? "#00AA13" : "#EE2737",
+                color: "#FFFFFF",
+                fontWeight: 700,
+                letterSpacing: "0.3px",
+              }}
+            >
+              {isTumbuh ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
+              <span>PREDIKSI: {isTumbuh ? "TUMBUH" : "TIDAK TUMBUH"}</span>
+            </div>
           </div>
+
           <h3 className="banner-headline">{result.headline}</h3>
           <p className="banner-summary">{result.summary}</p>
         </div>
@@ -46,7 +80,7 @@ export default function ResultSection({ result, onRetest }: ResultSectionProps) 
         <div className="risk-factors-wrap" style={{ marginTop: "24px" }}>
           <h4 className="rec-heading" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <AlertTriangle size={18} color="#FF8000" />
-            <span>Faktor Risiko &amp; Peringatan Dini Terdeteksi (Basis Aturan Mamdani)</span>
+            <span>Faktor Risiko &amp; Peringatan Dini Terdeteksi</span>
           </h4>
           <div
             className="risk-factors-grid"

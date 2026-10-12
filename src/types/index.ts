@@ -30,6 +30,7 @@ export interface RiskFactor {
 
 export interface EvaluationResult {
   score: string;
+  statusSpk: "Tumbuh" | "Tidak Tumbuh";
   statusBadgeColor: string;
   statusBadgeTextColor?: string;
   statusTitle: string;

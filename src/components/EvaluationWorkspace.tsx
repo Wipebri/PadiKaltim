@@ -150,8 +150,12 @@ export default function EvaluationWorkspace() {
           badgeBg = "#EE2737";
         }
 
+        const statusSpk: "Tumbuh" | "Tidak Tumbuh" =
+          (data.status_spk as "Tumbuh" | "Tidak Tumbuh") || (score >= 50.0 ? "Tumbuh" : "Tidak Tumbuh");
+
         setEvaluationResult({
           score: score.toFixed(2),
+          statusSpk,
           statusBadgeColor: badgeBg,
           statusBadgeTextColor: badgeColor,
           statusTitle: data.status_title,

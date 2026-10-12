@@ -275,8 +275,11 @@ export function evaluateSoilSuitability(params: SoilParameters): EvaluationResul
     });
   }
 
+  const statusSpk: "Tumbuh" | "Tidak Tumbuh" = finalScoreNum >= 50.0 ? "Tumbuh" : "Tidak Tumbuh";
+
   return {
     score,
+    statusSpk,
     statusBadgeColor,
     statusBadgeTextColor,
     statusTitle,
