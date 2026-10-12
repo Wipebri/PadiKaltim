@@ -12,13 +12,20 @@ export interface PresetLocation {
 }
 
 export interface SoilParameters {
-  temp: number;      // °C (default 26.0, range 10-45)
-  humidity: number;  // % (default 80, range 10-100)
-  rainfall: number;  // mm (default 220, range 0-1000)
-  ph: number;        // pH level (default 5.5, range 2.5-9.5)
-  n: number;         // mg/kg (default 75, range 0-140)
-  p: number;         // mg/kg (default 45, range 0-100)
-  k: number;         // mg/kg (default 40, range 0-100)
+  temp: number;      // °C (default 26.0, range 10-45.5)
+  humidity: number;  // % (default 75, range 30-100)
+  rainfall: number;  // mm (default 220, range 20-400)
+  ph: number;        // pH level (default 6.5, range 4.5-8.5)
+  n: number;         // mg/kg (default 75, range 5-150)
+  p: number;         // mg/kg (default 45, range 5-90)
+  k: number;         // mg/kg (default 40, range 10-100)
+}
+
+export interface RiskFactor {
+  name: string;
+  degree: number;
+  advice: string;
+  level: "aktif" | "waspada";
 }
 
 export interface EvaluationResult {
@@ -34,4 +41,5 @@ export interface EvaluationResult {
     npk: string;
     water: string;
   };
+  riskFactors?: RiskFactor[];
 }

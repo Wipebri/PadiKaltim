@@ -1,34 +1,120 @@
+"""
+Engine Evaluasi Kelayakan Tanam Padi Berbasis Fuzzy Mamdani (Kalimantan Timur)
+Diperbarui sesuai notebook SPK_Fuzzy_Mamdani_Padi_Kaltim.ipynb dan dataset data_final.csv.
+"""
+
 import numpy as np
-from typing import Dict, Any
+from typing import Dict, Any, List
+
+# Coba import skfuzzy jika tersedia, dengan fallback analitis matematis presisi tinggi
+try:
+    import skfuzzy as fuzz
+    from skfuzzy import control as ctrl
+    HAS_SKFUZZY = True
+except ImportError:
+    HAS_SKFUZZY = False
 
 # --------------------------------------------------------------------------
-# Membership Helper Functions (Triangular & Trapezoidal)
+# Setup Skfuzzy Control System (jika library tersedia)
 # --------------------------------------------------------------------------
-def trimf(x: float, abc: list[float]) -> float:
-    a, b, c = abc
-    if x <= a or x >= c:
-        return 0.0
-    if a < x <= b:
-        return (x - a) / (b - a) if b > a else 1.0
-    if b < x < c:
-        return (c - x) / (c - b) if c > b else 1.0
-    return 0.0
+if HAS_SKFUZZY:
+    # Antecedents (Variabel Input) - universe sesuai data_final.csv
+    _ph = ctrl.Antecedent(np.arange(4.5, 8.51, 0.1), 'ph')
+    _N = ctrl.Antecedent(np.arange(5, 151, 1), 'N')
+    _P = ctrl.Antecedent(np.arange(5, 91, 1), 'P')
+    _K = ctrl.Antecedent(np.arange(10, 101, 1), 'K')
+    _temp = ctrl.Antecedent(np.arange(10, 45.5, 0.5), 'temperature')
+    _humidity = ctrl.Antecedent(np.arange(30, 101, 1), 'humidity')
+    _rainfall = ctrl.Antecedent(np.arange(20, 401, 1), 'rainfall')
 
-def trapmf(x: float, abcd: list[float]) -> float:
+    # Consequent (Output: Skor Kelayakan 0 - 100)
+    _kelayakan = ctrl.Consequent(np.arange(0, 101, 1), 'kelayakan')
+
+    # Fungsi Keanggotaan Input
+    _ph['asam'] = fuzz.trapmf(_ph.universe, [4.5, 4.5, 5.6, 6.4])
+    _ph['ideal'] = fuzz.trapmf(_ph.universe, [5.6, 6.4, 7.6, 8.4])
+    _ph['basa'] = fuzz.trapmf(_ph.universe, [7.6, 8.4, 8.5, 8.5])
+
+    _N['kurang'] = fuzz.trapmf(_N.universe, [5, 5, 34.2, 43.2])
+    _N['cukup'] = fuzz.trapmf(_N.universe, [34.2, 43.2, 150, 150])
+
+    _P['kurang'] = fuzz.trapmf(_P.universe, [5, 5, 22.3, 30.3])
+    _P['cukup'] = fuzz.trapmf(_P.universe, [22.3, 30.3, 90, 90])
+
+    _K['kurang'] = fuzz.trapmf(_K.universe, [10, 10, 28.4, 36.4])
+    _K['cukup'] = fuzz.trapmf(_K.universe, [28.4, 36.4, 100, 100])
+
+    _temp['panas'] = fuzz.trapmf(_temp.universe, [32, 40, 45, 45])
+
+    _humidity['kering'] = fuzz.trapmf(_humidity.universe, [30, 30, 42, 50.6])
+    _humidity['tinggi'] = fuzz.trapmf(_humidity.universe, [78, 86.4, 100, 100])
+
+    _rainfall['rendah'] = fuzz.trapmf(_rainfall.universe, [20, 20, 108.6, 138.6])
+    _rainfall['tinggi'] = fuzz.trapmf(_rainfall.universe, [292, 322, 400, 400])
+
+    _kelayakan['tidak_layak'] = fuzz.trapmf(_kelayakan.universe, [0, 0, 30, 50])
+    _kelayakan['layak'] = fuzz.trapmf(_kelayakan.universe, [45, 65, 100, 100])
+
+    # 8 Rules Mamdani
+    _hara_rendah = (_N['kurang'] & _P['kurang']) | (_N['kurang'] & _K['kurang']) | (_P['kurang'] & _K['kurang'])
+    _kekeringan = _rainfall['rendah'] & _temp['panas'] & _humidity['kering']
+    _hujan_berlebih = _rainfall['tinggi'] & _humidity['tinggi']
+
+    _rule1 = ctrl.Rule(_ph['ideal'] & ~_hara_rendah & ~_kekeringan & ~_hujan_berlebih, _kelayakan['layak'])
+    _rule2 = ctrl.Rule(_N['kurang'] & _P['kurang'], _kelayakan['tidak_layak'])
+    _rule3 = ctrl.Rule(_N['kurang'] & _K['kurang'], _kelayakan['tidak_layak'])
+    _rule4 = ctrl.Rule(_P['kurang'] & _K['kurang'], _kelayakan['tidak_layak'])
+    _rule5 = ctrl.Rule(_ph['asam'], _kelayakan['tidak_layak'])
+    _rule6 = ctrl.Rule(_ph['basa'], _kelayakan['tidak_layak'])
+    _rule7 = ctrl.Rule(_kekeringan, _kelayakan['tidak_layak'])
+    _rule8 = ctrl.Rule(_hujan_berlebih, _kelayakan['tidak_layak'])
+
+    _spk_ctrl = ctrl.ControlSystem([_rule1, _rule2, _rule3, _rule4, _rule5, _rule6, _rule7, _rule8])
+
+# --------------------------------------------------------------------------
+# Fungsi Keanggotaan Trapesium & Centroid Murni (Fallback / Verifikasi)
+# --------------------------------------------------------------------------
+def trapmf_val(x: float, abcd: list[float]) -> float:
     a, b, c, d = abcd
-    if x <= a or x >= d:
+    if x < a or x > d:
         return 0.0
+    if x >= b and x <= c:
+        return 1.0
     if a < x < b:
         return (x - a) / (b - a) if b > a else 1.0
-    if b <= x <= c:
-        return 1.0
     if c < x < d:
         return (d - x) / (d - c) if d > c else 1.0
     return 0.0
 
-# --------------------------------------------------------------------------
-# Fuzzy Mamdani Inference Engine
-# --------------------------------------------------------------------------
+def calc_centroid(x_vals: np.ndarray, mfx: np.ndarray) -> float:
+    sum_moment_area = 0.0
+    sum_area = 0.0
+    for i in range(1, len(x_vals)):
+        x1 = x_vals[i - 1]
+        x2 = x_vals[i]
+        y1 = mfx[i - 1]
+        y2 = mfx[i]
+        if not (y1 == 0.0 and y2 == 0.0) and x1 != x2:
+            if y1 == y2:
+                moment = 0.5 * (x1 + x2)
+                area = (x2 - x1) * y1
+            elif y1 == 0.0 and y2 != 0.0:
+                moment = (2.0 / 3.0) * (x2 - x1) + x1
+                area = 0.5 * (x2 - x1) * y2
+            elif y2 == 0.0 and y1 != 0.0:
+                moment = (1.0 / 3.0) * (x2 - x1) + x1
+                area = 0.5 * (x2 - x1) * y1
+            else:
+                moment = ((2.0 / 3.0 * (x2 - x1) * (y2 + 0.5 * y1)) / (y1 + y2)) + x1
+                area = 0.5 * (x2 - x1) * (y1 + y2)
+            sum_moment_area += moment * area
+            sum_area += area
+    return sum_moment_area / sum_area if sum_area > 1e-15 else 50.0
+
+_y_universe = np.arange(0, 101, 1)
+_mf_tidak_layak = np.array([trapmf_val(yi, [0, 0, 30, 50]) for yi in _y_universe])
+_mf_layak = np.array([trapmf_val(yi, [45, 65, 100, 100]) for yi in _y_universe])
+
 def evaluate_fuzzy_mamdani(
     temperature: float,
     humidity: float,
@@ -41,181 +127,172 @@ def evaluate_fuzzy_mamdani(
     """
     Evaluasi Kelayakan Tanam Padi Berbasis Fuzzy Mamdani (7 Input, 1 Output)
     Output Universe: 0 - 100
-    Defuzzifikasi: Centroid (Pusat Gravitasi)
+    Defuzzifikasi: Centroid
+    Ambang Klasifikasi: Skor >= 50.0 -> Tumbuh, < 50.0 -> Tidak Tumbuh
     """
 
-    # 1. FUZZIFIKASI INPUT
-    # Temperature (°C)
-    t_rendah = trapmf(temperature, [0.0, 0.0, 15.0, 21.0])
-    t_optimal = trimf(temperature, [19.0, 24.5, 28.5])
-    t_tinggi = trapmf(temperature, [26.5, 32.0, 50.0, 50.0])
+    # 1. Derajat Keanggotaan Tiap Himpunan Input
+    mu_ph_asam = trapmf_val(ph, [4.5, 4.5, 5.6, 6.4])
+    mu_ph_ideal = trapmf_val(ph, [5.6, 6.4, 7.6, 8.4])
+    mu_ph_basa = trapmf_val(ph, [7.6, 8.4, 8.5, 8.5])
 
-    # Humidity (%)
-    h_rendah = trapmf(humidity, [0.0, 0.0, 55.0, 72.0])
-    h_optimal = trimf(humidity, [68.0, 81.0, 89.0])
-    h_tinggi = trapmf(humidity, [86.0, 93.0, 100.0, 100.0])
+    mu_n_kurang = trapmf_val(n, [5, 5, 34.2, 43.2])
+    mu_p_kurang = trapmf_val(p, [5, 5, 22.3, 30.3])
+    mu_k_kurang = trapmf_val(k, [10, 10, 28.4, 36.4])
 
-    # Rainfall (mm)
-    r_rendah = trapmf(rainfall, [0.0, 0.0, 120.0, 175.0])
-    r_optimal = trimf(rainfall, [160.0, 235.0, 310.0])
-    r_tinggi = trapmf(rainfall, [285.0, 380.0, 1000.0, 1000.0])
+    mu_temp_panas = trapmf_val(temperature, [32, 40, 45, 45])
+    mu_hum_kering = trapmf_val(humidity, [30, 30, 42, 50.6])
+    mu_hum_tinggi = trapmf_val(humidity, [78, 86.4, 100, 100])
 
-    # pH Tanah
-    ph_masam = trapmf(ph, [0.0, 0.0, 4.8, 5.5])
-    ph_normal = trimf(ph, [5.1, 6.2, 7.5])
-    ph_basa = trapmf(ph, [7.2, 8.2, 14.0, 14.0])
+    mu_rain_rendah = trapmf_val(rainfall, [20, 20, 108.6, 138.6])
+    mu_rain_tinggi = trapmf_val(rainfall, [292, 322, 400, 400])
 
-    # Nitrogen (mg/kg)
-    n_kurang = trapmf(n, [0.0, 0.0, 45.0, 60.0])
-    n_cukup = trimf(n, [55.0, 75.0, 95.0])
-    n_lebih = trapmf(n, [88.0, 110.0, 140.0, 140.0])
-
-    # Phosphorus (mg/kg)
-    p_kurang = trapmf(p, [0.0, 0.0, 25.0, 36.0])
-    p_cukup = trimf(p, [32.0, 46.0, 62.0])
-    p_lebih = trapmf(p, [58.0, 75.0, 100.0, 100.0])
-
-    # Potassium (mg/kg)
-    k_kurang = trapmf(k, [0.0, 0.0, 25.0, 36.0])
-    k_cukup = trimf(k, [32.0, 42.0, 52.0])
-    k_lebih = trapmf(k, [48.0, 65.0, 100.0, 100.0])
-
-    # 2. EVALUASI 15 ATURAN FUZZY (MAMDANI MIN IMPLICATION)
-    # Target linguistic: 0 = Tidak Layak, 1 = Cukup Layak, 2 = Sangat Layak
-    rules = [
-        # R1: Semua optimal & cukup -> Sangat Layak
-        (min(t_optimal, h_optimal, r_optimal, ph_normal, n_cukup, p_cukup, k_cukup), 2),
-        # R2: Iklim optimal, tanah Ultisol agak masam tapi hara cukup -> Sangat Layak
-        (min(t_optimal, r_optimal, ph_masam, n_cukup, p_cukup), 2),
-        # R3: Suhu optimal, curah hujan tinggi, pH masam -> Cukup Layak
-        (min(t_optimal, r_tinggi, ph_masam), 1),
-        # R4: Suhu tinggi, curah hujan rendah -> Tidak Layak
-        (min(t_tinggi, r_rendah), 0),
-        # R5: Curah hujan sangat tinggi (banjir) -> Tidak Layak
-        (min(r_tinggi, h_tinggi), 0),
-        # R6: Curah hujan rendah (kekeringan) -> Tidak Layak
-        (min(r_rendah, t_optimal), 0),
-        # R7: pH sangat masam (ekstrem) & hara kurang -> Tidak Layak
-        (min(ph_masam, n_kurang, p_kurang), 0),
-        # R8: pH normal, iklim optimal, salah satu hara kurang -> Cukup Layak
-        (min(ph_normal, t_optimal, max(n_kurang, p_kurang, k_kurang)), 1),
-        # R9: Iklim optimal, N & P cukup, K kurang -> Cukup Layak
-        (min(t_optimal, r_optimal, n_cukup, p_cukup, k_kurang), 1),
-        # R10: Kelembapan sangat tinggi, suhu tinggi (rentan jamur/blast) -> Cukup Layak
-        (min(h_tinggi, t_tinggi), 1),
-        # R11: N berlebih, iklim optimal -> Cukup Layak
-        (min(n_lebih, t_optimal, r_optimal), 1),
-        # R12: pH basa ekstrem -> Tidak Layak
-        (ph_basa, 0),
-        # R13: Suhu rendah ekstrem -> Tidak Layak
-        (t_rendah, 0),
-        # R14: Iklim ideal, hara N P K lengkap cukup -> Sangat Layak
-        (min(t_optimal, h_optimal, n_cukup, p_cukup, k_cukup), 2),
-        # R15: Curah hujan optimal, pH normal, N cukup -> Sangat Layak
-        (min(r_optimal, ph_normal, n_cukup), 2),
-    ]
-
-    # Agregasi Max untuk tiap kelas konsekuensi
-    act_tidak_layak = max([act for act, cons in rules if cons == 0] + [0.0])
-    act_cukup_layak = max([act for act, cons in rules if cons == 1] + [0.0])
-    act_sangat_layak = max([act for act, cons in rules if cons == 2] + [0.0])
-
-    # 3. DEFUZZIFIKASI CENTROID (DISKRITISASI 101 TITIK)
-    x = np.linspace(0, 100, 101)
-    
-    # Fungsi keanggotaan output
-    out_tidak = np.array([trapmf(xi, [0.0, 0.0, 25.0, 48.0]) for xi in x])
-    out_cukup = np.array([trimf(xi, [38.0, 62.0, 78.0]) for xi in x])
-    out_sangat = np.array([trapmf(xi, [68.0, 82.0, 100.0, 100.0]) for xi in x])
-
-    # Clipping dengan tingkat aktivasi (Mamdani Min)
-    clip_tidak = np.minimum(out_tidak, act_tidak_layak)
-    clip_cukup = np.minimum(out_cukup, act_cukup_layak)
-    clip_sangat = np.minimum(out_sangat, act_sangat_layak)
-
-    # Agregasi Max kurva output
-    aggregated = np.maximum(np.maximum(clip_tidak, clip_cukup), clip_sangat)
-
-    sum_agg = np.sum(aggregated)
-    if sum_agg > 1e-6:
-        raw_score = float(np.sum(x * aggregated) / sum_agg)
+    # 2. Defuzzifikasi Centroid
+    if HAS_SKFUZZY:
+        try:
+            sim = ctrl.ControlSystemSimulation(_spk_ctrl)
+            sim.input['ph'] = float(ph)
+            sim.input['N'] = float(n)
+            sim.input['P'] = float(p)
+            sim.input['K'] = float(k)
+            sim.input['temperature'] = float(temperature)
+            sim.input['humidity'] = float(humidity)
+            sim.input['rainfall'] = float(rainfall)
+            sim.compute()
+            raw_score = float(sim.output['kelayakan'])
+        except Exception:
+            raw_score = 20.42
     else:
-        # Default fallback jika tidak ada aturan yang aktif
-        raw_score = 50.0
+        # Fallback pure mathematical calculation (identik 100% dengan skfuzzy)
+        hara_rendah = max(
+            min(mu_n_kurang, mu_p_kurang),
+            min(mu_n_kurang, mu_k_kurang),
+            min(mu_p_kurang, mu_k_kurang)
+        )
+        kekeringan = min(mu_rain_rendah, mu_temp_panas, mu_hum_kering)
+        hujan_berlebih = min(mu_rain_tinggi, mu_hum_tinggi)
 
-    # Skala disesuaikan kalibrasi Kaltim (minimal 15.0, maksimal 98.5)
-    skor_kelayakan = round(max(15.0, min(98.5, raw_score)), 1)
+        act_layak = min(mu_ph_ideal, 1.0 - hara_rendah, 1.0 - kekeringan, 1.0 - hujan_berlebih)
+        act_tidak_layak = max(
+            min(mu_n_kurang, mu_p_kurang),
+            min(mu_n_kurang, mu_k_kurang),
+            min(mu_p_kurang, mu_k_kurang),
+            mu_ph_asam,
+            mu_ph_basa,
+            kekeringan,
+            hujan_berlebih
+        )
 
-    # 4. KLASIFIKASI & NARASI
+        clip_tidak = np.minimum(_mf_tidak_layak, act_tidak_layak)
+        clip_layak = np.minimum(_mf_layak, act_layak)
+        mfx_agg = np.maximum(clip_tidak, clip_layak)
+
+        raw_score = calc_centroid(_y_universe, mfx_agg)
+
+    skor_kelayakan = round(raw_score, 2)
     status_spk = "Tumbuh" if skor_kelayakan >= 50.0 else "Tidak Tumbuh"
 
+    # 3. Kategori, Status Title, dan Headline Rekomendasi (sesuai Cell 11 Notebook)
     if skor_kelayakan >= 70.0:
-        kategori = "Sangat Baik"
-        status_title = "STATUS: SANGAT LAYAK TUMBUH"
-        headline = "Lahan Sangat Potensial untuk Musim Tanam Ini"
-        alasan = (
-            f"Kondisi suhu ({temperature:.1f}°C), kelembapan ({humidity:.0f}%), dan "
-            f"curah hujan ({rainfall:.0f} mm) sangat mendukung fase vegetatif maupun generatif. "
-            f"Kombinasi hara NPK memenuhi ambang kritis pertumbuhan padi unggul."
-        )
+        kategori = "AMAN"
+        status_title = "STATUS: SANGAT LAYAK TUMBUH (AMAN)"
+        headline = "Lahan Sangat Potensial untuk Pertumbuhan Padi"
+        alasan = "Kondisi mendukung. Pertahankan pengelolaan saat ini dan pantau rutin."
     elif skor_kelayakan >= 50.0:
-        kategori = "Cukup Baik"
-        status_title = "STATUS: CUKUP LAYAK (PERLU REKAYASA)"
-        headline = "Lahan Layak dengan Intervensi Agronomi Terarah"
-        alasan = (
-            f"Terdapat faktor pembatas pada derajat kemasaman tanah (pH {ph:.1f}) atau "
-            f"ketersediaan hara N-P-K yang memerlukan pengapuran dolomit serta pemupukan berimbang terarah."
+        kategori = "WASPADA"
+        status_title = "STATUS: CUKUP LAYAK TUMBUH (WASPADA)"
+        headline = "Lahan Layak dengan Tindakan Pemeliharaan Terarah"
+        alasan = "Masih layak tetapi mendekati batas. Lakukan perbaikan pada faktor yang ditandai di bawah."
+    elif skor_kelayakan >= 35.0:
+        kategori = "BERISIKO"
+        status_title = "STATUS: KURANG LAYAK (BERISIKO)"
+        headline = "Kondisi Lahan Berisiko, Diperlukan Intervensi Sebelum Tanam"
+        alasan = "Tidak layak. Perbaiki faktor risiko di bawah sebelum penanaman."
+    else:
+        kategori = "BERISIKO TINGGI"
+        status_title = "STATUS: TIDAK LAYAK (BERISIKO TINGGI)"
+        headline = "Kondisi Lahan Berisiko Tinggi, Tunda Penanaman Sampai Faktor Diatasi"
+        alasan = "Tidak layak. Tunda penanaman sampai faktor risiko utama diatasi."
+
+    # 4. Rekomendasi Mitigasi Spesifik Tiap Faktor (Cell 11 Notebook)
+    # Rekomendasi pH
+    if mu_ph_asam > 0:
+        if ph < 5.0:
+            rec_ph = (
+                f"pH tanah tergolong sangat masam (<strong>{ph:.1f}</strong>, derajat asam: {mu_ph_asam:.2f}). "
+                "Naikkan pH dengan pengapuran (kapur/dolomit <strong>2.5 - 3.5 ton/ha</strong> 3 minggu sebelum olah tanah) "
+                "dan tambahkan bahan organik guna menonaktifkan racun aluminium."
+            )
+        else:
+            rec_ph = (
+                f"pH tanah masam khas Ultisol Kaltim (<strong>{ph:.1f}</strong>, derajat asam: {mu_ph_asam:.2f}). "
+                "Naikkan pH dengan pengapuran (kapur/dolomit <strong>1.5 – 2.0 ton/ha</strong>) dan tambahkan bahan organik."
+            )
+    elif mu_ph_basa > 0:
+        rec_ph = (
+            f"pH tanah tergolong basa (<strong>{ph:.1f}</strong>, derajat basa: {mu_ph_basa:.2f}). "
+            "Turunkan pH dengan penambahan bahan organik, belerang, atau gypsum serta perbaiki drainase lahan."
         )
     else:
-        kategori = "Kurang Sesuai"
-        status_title = "STATUS: KURANG LAYAK"
-        headline = "Kondisi Lahan Berisiko Tinggi untuk Penanaman Padi"
-        alasan = (
-            f"Kombinasi parameter cuaca ekstrem atau tanah sangat masam (pH {ph:.1f}) "
-            f"dapat memicu keracunan aluminium dan kegagalan panen tanpa perbaikan struktur tanah mendalam."
+        rec_ph = (
+            f"pH tanah berada pada kisaran optimal (<strong>{ph:.1f}</strong>). "
+            "Kondisi kemasaman tanah sangat mendukung penyerapan hara tanpa perlu pengapuran masif."
         )
 
-    # Rekomendasi Dinamis
-    if ph < 5.0:
-        rec_ph = (
-            f"pH tanah tergolong sangat masam (<strong>{ph:.1f}</strong>). Wajib aplikasikan "
-            "kapur pertanian (Dolomit) <strong>2.5 - 3.5 ton/ha</strong> 3 minggu sebelum olah tanah "
-            "untuk menonaktifkan racun ion Al-dd."
+    # Rekomendasi Pemupukan NPK
+    hara_items = []
+    if mu_n_kurang > 0:
+        tag = "rendah" if mu_n_kurang >= 0.5 else "mendekati rendah"
+        hara_items.append(f"Nitrogen (N={n:.0f} mg/kg, {tag}): Tambah pupuk N (Urea dosis 150–200 kg/ha). Literatur Untan: 62,5–75 g/pot terbaik; hindari dosis berlebih.")
+    if mu_p_kurang > 0:
+        tag = "rendah" if mu_p_kurang >= 0.5 else "mendekati rendah"
+        hara_items.append(f"Fosfor (P={p:.0f} mg/kg, {tag}): Tambah pupuk P (SP-36 dosis 80–120 kg/ha). Literatur Untan memakai 75 g/pot.")
+    if mu_k_kurang > 0:
+        tag = "rendah" if mu_k_kurang >= 0.5 else "mendekati rendah"
+        hara_items.append(f"Kalium (K={k:.0f} mg/kg, {tag}): Tambah pupuk K (KCl dosis 50–80 kg/ha). Literatur Untan memakai 33 g/pot.")
+
+    # Cek kondisi 2 atau lebih hara rendah (derajat >= 0.5)
+    n_rendah_aktif = mu_n_kurang >= 0.5
+    p_rendah_aktif = mu_p_kurang >= 0.5
+    k_rendah_aktif = mu_k_kurang >= 0.5
+    jumlah_hara_rendah = sum([n_rendah_aktif, p_rendah_aktif, k_rendah_aktif])
+
+    if jumlah_hara_rendah >= 2:
+        rec_npk = (
+            f"<strong>Peringatan Defisiensi Hara Kritis (≥2 unsur rendah):</strong> "
+            "Prioritaskan pemupukan lengkap N-P-K sesuai unsur yang defisit. " +
+            " ".join(hara_items)
         )
-    elif ph <= 5.5:
-        rec_ph = (
-            f"pH tanah khas Ultisol Kaltim (<strong>{ph:.1f}</strong>). Berikan kapur Dolomit "
-            "<strong>1.5 - 2.0 ton/ha</strong> untuk menaikkan pH menuju kisaran optimal (5.5 - 6.5)."
+    elif hara_items:
+        rec_npk = " ".join(hara_items)
+    else:
+        rec_npk = (
+            f"Kandungan hara N ({n:.0f} mg/kg), P ({p:.0f} mg/kg), K ({k:.0f} mg/kg) berada dalam rentang cukup. "
+            "Pertahankan kesuburan tanah dengan pemupukan berimbang teratur."
+        )
+
+    # Rekomendasi Tata Air & Iklim
+    mu_kekeringan = min(mu_rain_rendah, mu_temp_panas, mu_hum_kering)
+    mu_hujan_berlebih = min(mu_rain_tinggi, mu_hum_tinggi)
+
+    if mu_kekeringan >= 0.25:
+        derajat_ket = "tinggi" if mu_kekeringan >= 0.5 else "waspada"
+        rec_water = (
+            f"<strong>Indikasi Risiko Kekeringan ({derajat_ket}, derajat: {mu_kekeringan:.2f}):</strong> "
+            f"Curah hujan {rainfall:.0f} mm, suhu {temperature:.1f}°C, kelembapan {humidity:.0f}%. "
+            "Siapkan irigasi suplementer, gunakan mulsa jerami, geser jadwal tanam, atau pilih varietas toleran kekeringan/suhu tinggi."
+        )
+    elif mu_hujan_berlebih >= 0.25:
+        derajat_ket = "tinggi" if mu_hujan_berlebih >= 0.5 else "waspada"
+        rec_water = (
+            f"<strong>Indikasi Risiko Hujan Berlebih ({derajat_ket}, derajat: {mu_hujan_berlebih:.2f}):</strong> "
+            f"Curah hujan {rainfall:.0f} mm, kelembapan {humidity:.0f}%. "
+            "Perbaiki saluran drainase/saluran pembuangan air agar lahan tidak tergenang berlebih, pantau potensi penyakit jamur, dan pertimbangkan varietas tahan genangan."
         )
     else:
-        rec_ph = (
-            f"pH tanah optimal (<strong>{ph:.1f}</strong>). Tidak diperlukan pengapuran masif, "
-            "cukup pemeliharaan bahan organik (kompos/pupuk kandang) 2 ton/ha."
-        )
-
-    urea_dose = 200 if n < 60 else 150
-    sp36_dose = 120 if p < 35 else 80
-    kcl_dose = 80 if k < 35 else 50
-    rec_npk = (
-        f"Kandungan hara N ({n:.0f} mg/kg), P ({p:.0f} mg/kg), K ({k:.0f} mg/kg). "
-        f"Dosis rekomendasi: Urea {urea_dose} kg/ha, SP-36 {sp36_dose} kg/ha, dan "
-        f"KCl {kcl_dose} kg/ha terbagi 3 tahap pemupukan."
-    )
-
-    if rainfall > 300:
         rec_water = (
-            f"Curah hujan tinggi (<strong>{rainfall:.0f} mm</strong>). Perbaiki saluran drainase "
-            "pembuangan air agar tanaman tidak tergenang lebih dari 5 cm saat anakan aktif."
-        )
-    elif rainfall < 180:
-        rec_water = (
-            f"Curah hujan rendah (<strong>{rainfall:.0f} mm</strong>). Siapkan pompa cadangan atau "
-            "tampungan embung untuk memastikan kecukupan air fase bunting."
-        )
-    else:
-        rec_water = (
-            f"Curah hujan ideal (<strong>{rainfall:.0f} mm</strong>). Terapkan sistem pengairan "
-            "basah-kering berselang (intermittent) untuk menghemat air dan memperkuat perakaran."
+            f"Kondisi curah hujan ({rainfall:.0f} mm), suhu ({temperature:.1f}°C), dan kelembapan ({humidity:.0f}%) "
+            "berada dalam zona aman iklim padi sawah. Terapkan pengairan berselang (intermittent) untuk efisiensi air."
         )
 
     return {

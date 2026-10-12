@@ -2,7 +2,7 @@
 
 import React from "react";
 import { EvaluationResult } from "@/types";
-import { CheckCircle2, FlaskConical, Wheat, Droplets, ArrowLeft } from "lucide-react";
+import { CheckCircle2, FlaskConical, Wheat, Droplets, ArrowLeft, AlertTriangle } from "lucide-react";
 
 interface ResultSectionProps {
   result: EvaluationResult;
@@ -40,6 +40,82 @@ export default function ResultSection({ result, onRetest }: ResultSectionProps) 
           </div>
         </div>
       </div>
+
+      {/* Risk Factors Detection & Early Warning (jika ada faktor risiko aktif/waspada) */}
+      {result.riskFactors && result.riskFactors.length > 0 && (
+        <div className="risk-factors-wrap" style={{ marginTop: "24px" }}>
+          <h4 className="rec-heading" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <AlertTriangle size={18} color="#FF8000" />
+            <span>Faktor Risiko &amp; Peringatan Dini Terdeteksi (Basis Aturan Mamdani)</span>
+          </h4>
+          <div
+            className="risk-factors-grid"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+              gap: "16px",
+              marginTop: "12px",
+            }}
+          >
+            {result.riskFactors.map((rf, idx) => (
+              <div
+                key={idx}
+                className="risk-factor-item"
+                style={{
+                  backgroundColor:
+                    rf.level === "aktif" ? "rgba(238, 39, 55, 0.06)" : "rgba(255, 128, 0, 0.08)",
+                  border: `1px solid ${
+                    rf.level === "aktif" ? "rgba(238, 39, 55, 0.25)" : "rgba(255, 128, 0, 0.25)"
+                  }`,
+                  borderRadius: "16px",
+                  padding: "16px",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: "8px",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontWeight: 700,
+                      fontSize: "14px",
+                      color: rf.level === "aktif" ? "#EE2737" : "#B45309",
+                    }}
+                  >
+                    {rf.name}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      padding: "2px 8px",
+                      borderRadius: "12px",
+                      backgroundColor: rf.level === "aktif" ? "#EE2737" : "#FF8000",
+                      color: "#FFFFFF",
+                    }}
+                  >
+                    Derajat: {rf.degree.toFixed(2)}
+                  </span>
+                </div>
+                <p
+                  style={{
+                    fontSize: "13px",
+                    color: "var(--color-neutral-2)",
+                    margin: 0,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {rf.advice}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Agronomic Action Recommendation Cards */}
       <div className="recommendations-wrap">

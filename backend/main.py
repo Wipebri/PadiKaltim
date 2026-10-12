@@ -9,7 +9,7 @@ from services.soil_service import fetch_soilgrids_nutrients
 
 app = FastAPI(
     title="PadiKaltim - REST API SPK Fuzzy Mamdani",
-    description="Backend SPK Evaluasi Kelayakan Tanam Padi Berbasis Fuzzy Mamdani untuk Wilayah Kalimantan Timur.",
+    description="Backend SPK Sistem Pendukung Keputusan untuk Identifikasi Tumbuh Kembang Padi Berbasis Fuzzy Mamdani untuk Wilayah Kalimantan Timur.",
     version="1.0.0",
 )
 
@@ -47,6 +47,7 @@ class EvaluationResponse(BaseModel):
     headline: str
     alasan: str
     rekomendasi: Recommendations
+    faktor_risiko: Optional[list] = []
 
 # --------------------------------------------------------------------------
 # API Endpoints

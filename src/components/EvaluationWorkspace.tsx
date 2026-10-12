@@ -137,19 +137,21 @@ export default function EvaluationWorkspace() {
         const data = await res.json();
         const score = data.skor_kelayakan;
 
-        let badgeBg = "#00A651";
+        let badgeBg = "#00AA13";
         let badgeColor = "#FFFFFF";
         if (score >= 70.0) {
-          badgeBg = "#00A651";
+          badgeBg = "#00AA13";
         } else if (score >= 50.0) {
           badgeBg = "#F7EB5F";
           badgeColor = "#182430";
+        } else if (score >= 35.0) {
+          badgeBg = "#FF8000";
         } else {
-          badgeBg = "#E53935";
+          badgeBg = "#EE2737";
         }
 
         setEvaluationResult({
-          score: score.toFixed(1),
+          score: score.toFixed(2),
           statusBadgeColor: badgeBg,
           statusBadgeTextColor: badgeColor,
           statusTitle: data.status_title,
@@ -161,6 +163,7 @@ export default function EvaluationWorkspace() {
             npk: data.rekomendasi.npk,
             water: data.rekomendasi.water,
           },
+          riskFactors: data.faktor_risiko || [],
         });
       } else {
         // Fallback to local engine

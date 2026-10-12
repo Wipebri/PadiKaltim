@@ -28,7 +28,7 @@ export default function EvaluationForm({
     if (field === "humidity") val = Math.max(10, Math.min(100, Math.round(val)));
     if (field === "rainfall") val = Math.max(0, Math.min(1000, Math.round(val)));
     if (field === "ph") val = Math.max(2.5, Math.min(9.5, Math.round(val * 10) / 10));
-    if (field === "n") val = Math.max(0, Math.min(140, Math.round(val)));
+    if (field === "n") val = Math.max(0, Math.min(150, Math.round(val)));
     if (field === "p") val = Math.max(0, Math.min(100, Math.round(val)));
     if (field === "k") val = Math.max(0, Math.min(100, Math.round(val)));
 

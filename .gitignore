@@ -55,3 +55,9 @@ gopay.co.id-DESIGN.md
 
 # legacy vanilla backup
 frontend/
+
+# research notebooks & datasets
+*.ipynb
+.ipynb_checkpoints/
+*.csv
+
