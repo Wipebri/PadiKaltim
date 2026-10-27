@@ -5,12 +5,35 @@ import { Coordinates } from "@/types";
 import L from "leaflet";
 
 function inferRegionFromCoords(lat: number, lng: number): string {
+  // Check if inside East Kalimantan bounding box:
+  // Kaltim coordinates: Lat ~ -2.6° to 2.8°, Lng ~ 114.5° to 119.5°
+  const isKaltim = lat >= -2.6 && lat <= 2.8 && lng >= 114.5 && lng <= 119.5;
+
+  if (!isKaltim) {
+    // Check if within Java Island bounds: Lat ~ -9.0° to -5.5°, Lng ~ 105.0° to 115.5°
+    if (lat <= -5.5 && lat >= -9.0 && lng >= 105.0 && lng <= 115.5) {
+      if (lng < 108.5) return "Wilayah Jawa Barat / Banten";
+      if (lng < 111.5) return "Wilayah Jawa Tengah / DIY";
+      return "Wilayah Jawa Timur";
+    }
+    // Check Sumatra Island:
+    if (lat >= -6.0 && lat <= 6.0 && lng >= 95.0 && lng <= 106.0) {
+      return "Wilayah Sumatera";
+    }
+    // Check Sulawesi Island:
+    if (lat >= -5.8 && lat <= 2.0 && lng >= 118.5 && lng <= 125.5) {
+      return "Wilayah Sulawesi";
+    }
+    return "Di Luar Kalimantan Timur";
+  }
+
+  // Inside East Kalimantan:
   if (lat > 1.5) return "Kab. Berau";
   if (lat > 0.0 && lat <= 1.5) return "Kutai Timur / Bontang";
   if (lat < -0.3 && lat > -0.7 && lng > 117.0) return "Kota Samarinda";
   if (lat < -0.3 && lat > -0.7 && lng <= 117.0) return "Tenggarong, Kukar";
-  if (lat < -0.8 && lat > -1.4) return "Penajam Paser Utara";
-  if (lat <= -1.4) return "Kabupaten Paser";
+  if (lat < -0.8 && lat > -1.4 && lng >= 116.3 && lng <= 117.2) return "Penajam Paser Utara";
+  if (lat <= -1.4 && lng >= 115.5 && lng <= 116.8) return "Kabupaten Paser";
   return "Kalimantan Timur";
 }
 
@@ -29,9 +52,24 @@ export default function MapComponent({
   const [isDetectingGps, setIsDetectingGps] = useState(false);
 
   const updatePosition = useCallback(
-    (lat: number, lng: number, regionName?: string) => {
-      const region = regionName || inferRegionFromCoords(lat, lng);
-      onCoordinatesChange({ lat, lng, region });
+    async (lat: number, lng: number, regionName?: string) => {
+      const initialRegion = regionName || inferRegionFromCoords(lat, lng);
+      onCoordinatesChange({ lat, lng, region: initialRegion });
+
+      // Fetch precise reverse-geocoded location if not from an explicit preset
+      if (!regionName) {
+        try {
+          const res = await fetch(`/api/geocode?lat=${lat}&lng=${lng}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.region) {
+              onCoordinatesChange({ lat, lng, region: data.region });
+            }
+          }
+        } catch {
+          // Keep heuristic initialRegion if offline or API unavailable
+        }
+      }
     },
     [onCoordinatesChange]
   );

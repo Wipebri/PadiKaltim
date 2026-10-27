@@ -104,8 +104,15 @@ export default function EvaluationWorkspace() {
   }, []);
 
   const handleCoordinatesChange = (newCoords: Coordinates) => {
-    setCoordinates(newCoords);
-    fetchLocationEnvironment(newCoords.lat, newCoords.lng);
+    setCoordinates((prev) => {
+      if (
+        Math.abs(prev.lat - newCoords.lat) > 0.0001 ||
+        Math.abs(prev.lng - newCoords.lng) > 0.0001
+      ) {
+        fetchLocationEnvironment(newCoords.lat, newCoords.lng);
+      }
+      return newCoords;
+    });
   };
 
   const handleSelectPreset = (lat: number, lng: number, region: string, key: string) => {

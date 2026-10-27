@@ -83,7 +83,7 @@ export default function EvaluationForm({
             ) : (
               <>
                 <i className="fa-solid fa-arrow-rotate-left"></i>
-                <span>Reset Ultisol</span>
+                <span>Reset Nilai Standar</span>
               </>
             )}
           </button>
