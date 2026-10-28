@@ -18,7 +18,7 @@ interface ResultSectionProps {
 }
 
 export default function ResultSection({ result, onRetest }: ResultSectionProps) {
-  const isTumbuh = result.statusSpk === "Tumbuh" || parseFloat(result.score) >= 50.0;
+  const isTumbuh = result.statusSpk === "Tumbuh";
 
   return (
     <div id="result-section" className="result-container">

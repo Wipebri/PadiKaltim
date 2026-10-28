@@ -26,7 +26,7 @@ export default function EvaluationForm({
     // Bounds checking
     if (field === "temp") val = Math.max(10, Math.min(45, Math.round(val * 10) / 10));
     if (field === "humidity") val = Math.max(10, Math.min(100, Math.round(val)));
-    if (field === "rainfall") val = Math.max(0, Math.min(1000, Math.round(val)));
+    if (field === "rainfall") val = Math.max(0, Math.min(600, Math.round(val)));
     if (field === "ph") val = Math.max(2.5, Math.min(9.5, Math.round(val * 10) / 10));
     if (field === "n") val = Math.max(0, Math.min(150, Math.round(val)));
     if (field === "p") val = Math.max(0, Math.min(100, Math.round(val)));
@@ -173,9 +173,9 @@ export default function EvaluationForm({
                 <label
                   htmlFor="rainfall"
                   className="input-label"
-                  title="Annual rainfall in mm"
+                  title="Akumulasi curah hujan 30 hari terakhir dalam mm"
                 >
-                  Curah Hujan (mm)
+                  Curah Hujan (mm/30 hr)
                 </label>
                 <div className="stepper-input-row">
                   <button
@@ -188,6 +188,8 @@ export default function EvaluationForm({
                   <input
                     type="number"
                     id="rainfall"
+                    min="0"
+                    max="600"
                     step="1"
                     value={parameters.rainfall}
                     onChange={(e) => handleInputChange("rainfall", e.target.value)}

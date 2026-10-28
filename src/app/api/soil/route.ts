@@ -6,15 +6,15 @@ export async function GET(req: NextRequest) {
   const lng = searchParams.get("lng") || "117.02981";
 
   const fallback = {
-    ph: 5.5,
+    ph: 6.5,
     n: 75.0,
     p: 45.0,
     k: 40.0,
-    source: "ultisol_kaltim_calibrated_profile",
+    source: "default_soil_profile",
   };
 
   try {
-    const url = `https://rest.isric.org/soilgrids/v2.0/properties/query?lon=${lng}&lat=${lat}&property=phh2o&property=nitrogen&depth=0-5cm&value=mean`;
+    const url = `https://rest.isric.org/soilgrids/v2.0/properties/query?lon=${lng}&lat=${lat}&property=phh2o&depth=0-5cm&value=mean`;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
 
@@ -28,8 +28,7 @@ export async function GET(req: NextRequest) {
       const data = await res.json();
       const layers = data?.properties?.layers || [];
 
-      let extractedPh = 5.5;
-      let extractedN = 75.0;
+      let extractedPh = 6.5;
 
       for (const layer of layers) {
         const propName = layer?.name;
@@ -39,8 +38,6 @@ export async function GET(req: NextRequest) {
           if (meanVal !== undefined && meanVal !== null) {
             if (propName === "phh2o") {
               extractedPh = Math.max(3.5, Math.min(8.5, meanVal / 10.0));
-            } else if (propName === "nitrogen") {
-              extractedN = Math.max(30.0, Math.min(140.0, Number(meanVal) / 10.0));
             }
           }
         }
@@ -48,7 +45,7 @@ export async function GET(req: NextRequest) {
 
       return NextResponse.json({
         ph: Math.round(extractedPh * 10) / 10,
-        n: Math.round(extractedN),
+        n: 75.0,
         p: 45.0,
         k: 40.0,
         source: "soilgrids_isric_api",

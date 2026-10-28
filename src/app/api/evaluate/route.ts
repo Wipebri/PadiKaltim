@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       skor_kelayakan: parseFloat(result.score),
-      status_spk: parseFloat(result.score) >= 50.0 ? "Tumbuh" : "Tidak Tumbuh",
+      status_spk: result.statusSpk,
       kategori: result.scoreCategory.replace("Kategori: ", ""),
       status_title: result.statusTitle,
       headline: result.headline,

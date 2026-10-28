@@ -13,7 +13,10 @@ export async function GET(req: NextRequest) {
   };
 
   try {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,precipitation&daily=precipitation_sum&timezone=Asia/Makassar`;
+    const url =
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}` +
+      `&current=temperature_2m,relative_humidity_2m` +
+      `&daily=precipitation_sum&past_days=30&forecast_days=1&timezone=Asia/Makassar`;
     const res = await fetch(url, { next: { revalidate: 300 } });
 
     if (res.ok) {
@@ -23,14 +26,20 @@ export async function GET(req: NextRequest) {
 
       const temp = current.temperature_2m ?? 26.0;
       const hum = current.relative_humidity_2m ?? 80.0;
-      const dailyPrecip = (daily.precipitation_sum && daily.precipitation_sum[0]) ?? (current.precipitation ?? 0.0);
-      const estimatedRainfall = Math.max(100.0, Math.min(450.0, 200.0 + Number(dailyPrecip) * 10.0));
+
+      const sums: Array<number | null> = daily.precipitation_sum ?? [];
+      const past = sums.slice(0, -1).filter((v): v is number => typeof v === "number"); // 30 hari terakhir, tanpa hari ini
+      const rainfall30 = past.length >= 25 ? past.reduce((a, b) => a + b, 0) : null;
+
+      if (rainfall30 === null) {
+        return NextResponse.json(fallback);
+      }
 
       return NextResponse.json({
         temperature: Math.round(Number(temp) * 10) / 10,
         humidity: Math.round(Number(hum)),
-        rainfall: Math.round(Number(estimatedRainfall)),
-        daily_precipitation_mm: Math.round(Number(dailyPrecip) * 10) / 10,
+        rainfall: Math.round(rainfall30),
+        past_days_count: past.length,
         source: "open_meteo_live",
       });
     }

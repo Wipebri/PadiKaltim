@@ -144,21 +144,15 @@ export default function EvaluationWorkspace() {
         const data = await res.json();
         const score = data.skor_kelayakan;
 
-        let badgeBg = "#00AA13";
-        let badgeColor = "#FFFFFF";
-        if (score >= 70.0) {
-          badgeBg = "#00AA13";
-        } else if (score >= 50.0) {
-          badgeBg = "#F7EB5F";
-          badgeColor = "#182430";
-        } else if (score >= 35.0) {
-          badgeBg = "#FF8000";
-        } else {
-          badgeBg = "#EE2737";
-        }
+        const badgeByKategori: Record<string, [string, string]> = {
+          AMAN: ["#00AA13", "#FFFFFF"],
+          WASPADA: ["#F7EB5F", "#182430"],
+          BERISIKO: ["#FF8000", "#FFFFFF"],
+          "BERISIKO TINGGI": ["#EE2737", "#FFFFFF"],
+        };
+        const [badgeBg, badgeColor] = badgeByKategori[data.kategori] ?? badgeByKategori["BERISIKO TINGGI"];
 
-        const statusSpk: "Tumbuh" | "Tidak Tumbuh" =
-          (data.status_spk as "Tumbuh" | "Tidak Tumbuh") || (score >= 50.0 ? "Tumbuh" : "Tidak Tumbuh");
+        const statusSpk: "Tumbuh" | "Tidak Tumbuh" = data.status_spk;
 
         setEvaluationResult({
           score: score.toFixed(2),

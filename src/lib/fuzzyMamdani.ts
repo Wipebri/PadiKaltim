@@ -67,24 +67,62 @@ const Y_UNIVERSE: number[] = Array.from({ length: 101 }, (_, i) => i);
 const MF_TIDAK_LAYAK = Y_UNIVERSE.map((yi) => trapmf(yi, [0, 0, 30, 50]));
 const MF_LAYAK = Y_UNIVERSE.map((yi) => trapmf(yi, [45, 65, 100, 100]));
 
+/** Setara np.arange(start, stop, step) */
+function arange(start: number, stop: number, step: number): number[] {
+  const len = Math.ceil((stop - start) / step);
+  return Array.from({ length: len }, (_, i) => start + i * step);
+}
+
+// Universe input identik dengan notebook / backend skfuzzy (ctrl.Antecedent)
+const U = {
+  ph: arange(4.5, 8.51, 0.1),
+  n: arange(5, 151, 1),
+  p: arange(5, 91, 1),
+  k: arange(10, 101, 1),
+  temp: arange(10, 45.5, 0.5),
+  humidity: arange(30, 101, 1),
+  rainfall: arange(20, 401, 1),
+};
+
+/**
+ * Derajat keanggotaan versi skfuzzy: kurva trapesium disampling pada universe diskret,
+ * lalu nilai input diinterpolasi linear (np.interp) dan di-clip ke batas universe
+ * (perilaku default ControlSystemSimulation, clip_to_bounds=True).
+ */
+function fuzzMembership(universe: number[], abcd: [number, number, number, number], x: number): number {
+  const lo = universe[0];
+  const hi = universe[universe.length - 1];
+  const xc = Math.min(hi, Math.max(lo, x));
+  for (let i = 1; i < universe.length; i++) {
+    if (xc <= universe[i]) {
+      const x0 = universe[i - 1];
+      const x1 = universe[i];
+      const y0 = trapmf(x0, abcd);
+      const y1 = trapmf(x1, abcd);
+      return x1 === x0 ? y1 : y0 + ((y1 - y0) * (xc - x0)) / (x1 - x0);
+    }
+  }
+  return trapmf(hi, abcd);
+}
+
 export function evaluateSoilSuitability(params: SoilParameters): EvaluationResult {
   const { temp, humidity, rainfall, ph, n, p, k } = params;
 
   // 1. FUZZIFIKASI INPUT
-  const muPhAsam = trapmf(ph, [4.5, 4.5, 5.6, 6.4]);
-  const muPhIdeal = trapmf(ph, [5.6, 6.4, 7.6, 8.4]);
-  const muPhBasa = trapmf(ph, [7.6, 8.4, 8.5, 8.5]);
+  const muPhAsam = fuzzMembership(U.ph, [4.5, 4.5, 5.6, 6.4], ph);
+  const muPhIdeal = fuzzMembership(U.ph, [5.6, 6.4, 7.6, 8.4], ph);
+  const muPhBasa = fuzzMembership(U.ph, [7.6, 8.4, 8.5, 8.5], ph);
 
-  const muNKurang = trapmf(n, [5, 5, 34.2, 43.2]);
-  const muPKurang = trapmf(p, [5, 5, 22.3, 30.3]);
-  const muKKurang = trapmf(k, [10, 10, 28.4, 36.4]);
+  const muNKurang = fuzzMembership(U.n, [5, 5, 34.2, 43.2], n);
+  const muPKurang = fuzzMembership(U.p, [5, 5, 22.3, 30.3], p);
+  const muKKurang = fuzzMembership(U.k, [10, 10, 28.4, 36.4], k);
 
-  const muTempPanas = trapmf(temp, [32, 40, 45, 45]);
-  const muHumKering = trapmf(humidity, [30, 30, 42, 50.6]);
-  const muHumTinggi = trapmf(humidity, [78, 86.4, 100, 100]);
+  const muTempPanas = fuzzMembership(U.temp, [32, 40, 45, 45], temp);
+  const muHumKering = fuzzMembership(U.humidity, [30, 30, 42, 50.6], humidity);
+  const muHumTinggi = fuzzMembership(U.humidity, [78, 86.4, 100, 100], humidity);
 
-  const muRainRendah = trapmf(rainfall, [20, 20, 108.6, 138.6]);
-  const muRainTinggi = trapmf(rainfall, [292, 322, 400, 400]);
+  const muRainRendah = fuzzMembership(U.rainfall, [20, 20, 108.6, 138.6], rainfall);
+  const muRainTinggi = fuzzMembership(U.rainfall, [292, 322, 400, 400], rainfall);
 
   // 2. BASIS ATURAN MAMDANI (8 ATURAN)
   const haraRendah = Math.max(
@@ -116,16 +154,34 @@ export function evaluateSoilSuitability(params: SoilParameters): EvaluationResul
   );
 
   // 3. DEFUZZIFIKASI CENTROID
-  const mfxAgg = Y_UNIVERSE.map((_, i) =>
-    Math.max(
-      Math.min(MF_TIDAK_LAYAK[i], actTidakLayak),
-      Math.min(MF_LAYAK[i], actLayak)
-    )
+  // Sama seperti skfuzzy (CrispValueCalculator.find_memberships): universe output
+  // di-upsample dengan titik potong tiap kurva terhadap level aktivasinya.
+  const terms: Array<[number[], number]> = [
+    [MF_TIDAK_LAYAK, actTidakLayak],
+    [MF_LAYAK, actLayak],
+  ];
+  const extra: number[] = [];
+  for (const [mf, cut] of terms) {
+    for (let i = 0; i < mf.length - 1; i++) {
+      const a = cut === 0 ? mf[i] > cut : mf[i] >= cut;
+      const b = cut === 0 ? mf[i + 1] > cut : mf[i + 1] >= cut;
+      if (a !== b) {
+        extra.push(Y_UNIVERSE[i] + ((cut - mf[i]) * (Y_UNIVERSE[i + 1] - Y_UNIVERSE[i])) / (mf[i + 1] - mf[i]));
+      }
+    }
+  }
+  const upsUniverse = Array.from(new Set([...Y_UNIVERSE, ...extra])).sort((a, b) => a - b);
+  const interpOut = (mf: number[], x: number): number => {
+    const i = Math.min(Math.floor(x), Y_UNIVERSE.length - 2);
+    return mf[i] + (mf[i + 1] - mf[i]) * (x - Y_UNIVERSE[i]);
+  };
+  const mfxAgg = upsUniverse.map((x) =>
+    Math.max(...terms.map(([mf, cut]) => Math.min(cut, interpOut(mf, x))))
   );
 
-  const rawScore = calcCentroid(Y_UNIVERSE, mfxAgg);
-  const score = rawScore.toFixed(2);
-  const finalScoreNum = parseFloat(score);
+  const rawScore = calcCentroid(upsUniverse, mfxAgg);
+  const score = rawScore.toFixed(2); // hanya untuk tampilan
+  const finalScoreNum = rawScore; // klasifikasi pakai skor asli (tanpa pembulatan), sama seperti notebook
 
   // 4. KATEGORISASI & STATUS KEPUTUSAN (Cell 11 Notebook)
   let statusBadgeColor = "#00AA13"; // GoPay Green
@@ -184,15 +240,15 @@ export function evaluateSoilSuitability(params: SoilParameters): EvaluationResul
   const haraItems: string[] = [];
   if (muNKurang > 0) {
     const tag = muNKurang >= 0.5 ? "rendah" : "mendekati rendah";
-    haraItems.push(`Nitrogen (N=${n.toFixed(0)} mg/kg, ${tag}): Tambah pupuk N (Urea 150-200 kg/ha). Literatur Untan: 62,5-75 g/pot terbaik; hindari dosis berlebih.`);
+    haraItems.push(`Nitrogen (N=${n.toFixed(0)} mg/kg, ${tag}): Tambah pupuk N (Urea 150-200 kg/ha terbagi 2-3 kali pemupukan). Hindari dosis berlebih.`);
   }
   if (muPKurang > 0) {
     const tag = muPKurang >= 0.5 ? "rendah" : "mendekati rendah";
-    haraItems.push(`Fosfor (P=${p.toFixed(0)} mg/kg, ${tag}): Tambah pupuk P (SP-36 80-120 kg/ha). Literatur Untan memakai 75 g/pot.`);
+    haraItems.push(`Fosfor (P=${p.toFixed(0)} mg/kg, ${tag}): Tambah pupuk P (SP-36 80-120 kg/ha) diaplikasikan seluruhnya saat tanam sebagai pupuk dasar.`);
   }
   if (muKKurang > 0) {
     const tag = muKKurang >= 0.5 ? "rendah" : "mendekati rendah";
-    haraItems.push(`Kalium (K=${k.toFixed(0)} mg/kg, ${tag}): Tambah pupuk K (KCl 50-80 kg/ha). Literatur Untan memakai 33 g/pot.`);
+    haraItems.push(`Kalium (K=${k.toFixed(0)} mg/kg, ${tag}): Tambah pupuk K (KCl 50-80 kg/ha) untuk memperkuat batang dan pengisian gabah.`);
   }
 
   const nRendahAktif = muNKurang >= 0.5;
