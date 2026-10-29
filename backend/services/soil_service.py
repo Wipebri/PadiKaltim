@@ -6,7 +6,7 @@ DEFAULT_ULTISOL_FALLBACK = {
     "n": 75.0,
     "p": 45.0,
     "k": 40.0,
-    "source": "default_soil_profile",
+    "source": "ultisol_kaltim_calibrated_profile",
 }
 
 async def fetch_soilgrids_nutrients(lat: float, lng: float) -> Dict[str, Any]:
@@ -30,17 +30,18 @@ async def fetch_soilgrids_nutrients(lat: float, lng: float) -> Dict[str, Any]:
                 data = response.json()
                 layers = data.get("properties", {}).get("layers", [])
 
-                extracted_ph = 6.5
+                extracted_ph = None
 
                 for layer in layers:
-                    prop_name = layer.get("name")
-                    depths = layer.get("depths", [])
-                    if depths:
-                        mean_val = depths[0].get("values", {}).get("mean")
-                        if mean_val is not None:
-                            if prop_name == "phh2o":
-                                # SoilGrids stores pH scaled by 10 (e.g. 55 -> 5.5)
+                    if layer.get("name") == "phh2o":
+                        depths = layer.get("depths", [])
+                        if depths:
+                            mean_val = depths[0].get("values", {}).get("mean")
+                            if mean_val is not None:
                                 extracted_ph = max(3.5, min(8.5, mean_val / 10.0))
+
+                if extracted_ph is None:
+                    return DEFAULT_ULTISOL_FALLBACK
 
                 return {
                     "ph": round(float(extracted_ph), 1),

@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
     n: 75.0,
     p: 45.0,
     k: 40.0,
-    source: "default_soil_profile",
+    source: "ultisol_kaltim_calibrated_profile",
   };
 
   try {
@@ -28,19 +28,19 @@ export async function GET(req: NextRequest) {
       const data = await res.json();
       const layers = data?.properties?.layers || [];
 
-      let extractedPh = 6.5;
+      let extractedPh: number | null = null;
 
       for (const layer of layers) {
-        const propName = layer?.name;
-        const depths = layer?.depths || [];
-        if (depths.length > 0) {
-          const meanVal = depths[0]?.values?.mean;
+        if (layer?.name === "phh2o") {
+          const meanVal = layer?.depths?.[0]?.values?.mean;
           if (meanVal !== undefined && meanVal !== null) {
-            if (propName === "phh2o") {
-              extractedPh = Math.max(3.5, Math.min(8.5, meanVal / 10.0));
-            }
+            extractedPh = Math.max(3.5, Math.min(8.5, meanVal / 10.0));
           }
         }
+      }
+
+      if (extractedPh === null) {
+        return NextResponse.json(fallback);
       }
 
       return NextResponse.json({
