@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <defs>
+    <!-- Background Badge Gradient -->
+    <linearGradient id="pkBadgeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00C417"/>
+      <stop offset="50%" stop-color="#00AA13"/>
+      <stop offset="100%" stop-color="#007E0D"/>
+    </linearGradient>
+
+    <!-- Golden Rice Grain Gradient -->
+    <linearGradient id="pkGrainGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFF275"/>
+      <stop offset="40%" stop-color="#FDCB24"/>
+      <stop offset="100%" stop-color="#E59B00"/>
+    </linearGradient>
+
+    <!-- Sprout Leaf Gradient -->
+    <linearGradient id="pkLeafGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#D1FAE5"/>
+    </linearGradient>
+
+    <!-- Soft Drop Shadow for Depth -->
+    <filter id="pkShadow" x="-10%" y="-10%" width="125%" height="125%">
+      <feDropShadow dx="0" dy="4" stdDeviation="3" flood-color="#004D07" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- Base Circular Squircle Badge -->
+  <rect x="6" y="6" width="108" height="108" rx="34" fill="url(#pkBadgeGrad)"/>
+  
+  <!-- Subtle Inner Ring Highlight -->
+  <rect x="8" y="8" width="104" height="104" rx="32" stroke="#FFFFFF" stroke-opacity="0.22" stroke-width="2"/>
+
+  <!-- Logo Graphics Group -->
+  <g filter="url(#pkShadow)">
+    <!-- Central Flowing Stem -->
+    <path d="M42 90 C 44 74, 52 56, 68 34" 
+          stroke="#FFFFFF" stroke-width="5" stroke-linecap="round"/>
+
+    <!-- Leaf Sprout (Right Branch) -->
+    <path d="M52 64 C 64 62, 82 66, 88 56 C 84 72, 68 76, 56 72 Z" 
+          fill="url(#pkLeafGrad)"/>
+
+    <!-- Small Accent Leaf / Sunburst Sparkle Top-Right -->
+    <path d="M68 34 C 76 26, 88 24, 92 20 C 88 32, 78 38, 68 34 Z" 
+          fill="#FFF9A6"/>
+
+    <!-- Rice Grains (Bulir Padi Emas Kaltim - Left Side) -->
+    <!-- Grain 1 (Top) -->
+    <path d="M64 38 C 56 34, 44 33, 40 40 C 42 49, 56 48, 62 42 Z" 
+          fill="url(#pkGrainGrad)" stroke="#B47200" stroke-width="0.8"/>
+    
+    <!-- Grain 2 (Middle-Upper) -->
+    <path d="M56 50 C 47 46, 35 46, 32 54 C 35 63, 49 61, 55 54 Z" 
+          fill="url(#pkGrainGrad)" stroke="#B47200" stroke-width="0.8"/>
+
+    <!-- Grain 3 (Middle-Lower) -->
+    <path d="M49 63 C 39 59, 27 60, 24 68 C 28 77, 42 74, 47 67 Z" 
+          fill="url(#pkGrainGrad)" stroke="#B47200" stroke-width="0.8"/>
+
+    <!-- Grain 4 (Base) -->
+    <path d="M43 76 C 34 73, 23 75, 21 82 C 25 89, 38 86, 42 79 Z" 
+          fill="url(#pkGrainGrad)" stroke="#B47200" stroke-width="0.8"/>
+
+    <!-- Precision Data / Droplet Node at Stem Root -->
+    <circle cx="42" cy="90" r="4.5" fill="#FFFFFF"/>
+    <circle cx="42" cy="90" r="2" fill="#00AA13"/>
+  </g>
+</svg>

@@ -1,5 +1,6 @@
 import React from "react";
 import Link from "next/link";
+import BrandLogo from "./BrandLogo";
 
 export default function Footer() {
   return (
@@ -7,10 +8,9 @@ export default function Footer() {
       <div className="footer-container">
         <div className="footer-grid">
           <div className="footer-brand-col">
-            <div className="footer-logo">
-              <span className="logo-circle bg-white"></span>
-              <span className="footer-logo-text">PadiKaltim</span>
-            </div>
+            <Link href="#hero" style={{ textDecoration: "none", display: "inline-block", marginBottom: "16px" }}>
+              <BrandLogo size={32} variant="light" />
+            </Link>
             <p className="footer-about">
               Bantu Anda menilai kelayakan sawah secara instan sebelum masa tanam.
               Cukup tentukan titik lokasi lahan untuk mengetahui potensi

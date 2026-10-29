@@ -23,6 +23,13 @@ export const metadata: Metadata = {
     "Ultisol",
   ],
   metadataBase: new URL("https://padikaltim.vercel.app"),
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
+  },
   openGraph: {
     title: "PadiKaltim - Sistem Pendukung Keputusan untuk Identifikasi Tumbuh Kembang Padi",
     description:

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import BrandLogo from "./BrandLogo";
 
 export default function Navbar() {
   const [activeSection, setActiveSection] = useState("hero");
@@ -32,9 +33,8 @@ export default function Navbar() {
   return (
     <header className="gopay-nav">
       <div className="nav-container">
-        <Link href="#hero" className="brand-logo">
-          <span className="logo-circle"></span>
-          <span className="logo-title">PadiKaltim</span>
+        <Link href="#hero" className="brand-logo" style={{ textDecoration: "none" }}>
+          <BrandLogo size={32} />
         </Link>
 
         <nav className="nav-menu">
